@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paiseon Ka Hisaab</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        #app {
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            width: 80%;
+            max-width: 400px;
+            text-align: center;
+            margin: auto;
+        }
+
+        #itemName,
+        #itemPrice {
+            width: 80%;
+            padding: 8px;
+            margin-bottom: 10px;
+        }
+
+        #addItem,
+        #clearAll,
+        #downloadExcel {
+            background-color: #3498db;
+            color: #fff;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: background-color 0.3s;
+        }
+
+        #addItem:hover,
+        #clearAll:hover,
+        #downloadExcel:hover {
+            background-color: #2980b9;
+        }
+
+        #transactions {
+            text-align: left;
+            margin-top: 20px;
+        }
+
+        #transactionList li {
+            list-style-type: none;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 5px;
+        }
+
+        #totalAmount {
+            font-weight: bold;
+        }
+
+        /* Custom modal styles */
+        #modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+        }
+
+        #modal-content {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        #modal-buttons button {
+            margin: 0 10px;
+            padding: 8px 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+        }
+        .delete-icon {
+            color: #ff0000;
+            cursor: pointer;
+            margin-left: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <h2>Paiseon</h2>
+        <input type="text" id="itemName" placeholder="Enter item name">
+        <input type="number" id="itemPrice" placeholder="Enter item price">
+        <button id="addItem" onclick="addItem()">Add Item</button>
+        <button id="clearAll" onclick="openModal()">Clear All</button>
+        <button id="downloadExcel" onclick="downloadExcel()">Download Excel</button>
+        <div id="transactions">
+            <h3>Transactions:</h3>
+            <ul id="transactionList"></ul>
+            <p>Total: ₹<span id="totalAmount">0</span></p>
+        </div>
+    </div>
+
+    <!-- Custom modal -->
+    <div id="modal">
+        <div id="modal-content">
+            <p>Are you sure you want to clear all transactions?</p>
+            <div id="modal-buttons">
+                <button onclick="clearAll()">Yes</button>
+                <button onclick="closeModal()">No</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.3/xlsx.full.min.js"></script>
+<script>
+    // Initialize transactions array
+    let transactions = loadTransactions();
+
+    function loadTransactions() {
+        const storedTransactions = localStorage.getItem('transactions');
+        return storedTransactions ? JSON.parse(storedTransactions) : [];
+    }
+
+    function saveTransactions() {
+        localStorage.setItem('transactions', JSON.stringify(transactions));
+    }
+
+    function addItem() {
+        const itemNameInput = document.getElementById('itemName');
+        const itemPriceInput = document.getElementById('itemPrice');
+
+        const itemName = itemNameInput.value.trim();
+        const itemPrice = parseFloat(itemPriceInput.value);
+
+        if (itemName === '' || isNaN(itemPrice)) {
+            alert('Please enter valid item details');
+            return;
+        }
+
+        const date = new Date().toLocaleDateString();
+        transactions.push({ itemName, itemPrice, date });
+        updateTransactionList();
+        updateTotalAmount();
+        itemNameInput.value = '';
+        itemPriceInput.value = '';
+
+        // Save transactions to local storage
+        saveTransactions();
+    }
+
+    function updateTransactionList() {
+        const transactionList = document.getElementById('transactionList');
+        transactionList.innerHTML = '';
+
+        for (let i = 0; i < transactions.length; i++) {
+            const listItem = document.createElement('li');
+            listItem.innerHTML = `<strong>${transactions[i].itemName}</strong>: ₹${transactions[i].itemPrice} - ${transactions[i].date} 
+            <span class="delete-icon" onclick="deleteTransaction(${i})">&#10006;</span>`;
+            transactionList.appendChild(listItem);
+        }
+    }
+
+    function updateTotalAmount() {
+        const totalAmountElement = document.getElementById('totalAmount');
+        const totalAmount = transactions.reduce((total, transaction) => total + transaction.itemPrice, 0);
+        totalAmountElement.textContent = totalAmount.toFixed(2);
+    }
+
+    function openModal() {
+        const modal = document.getElementById('modal');
+        modal.style.display = 'flex';
+    }
+
+    function closeModal() {
+        const modal = document.getElementById('modal');
+        modal.style.display = 'none';
+    }
+
+    function clearAll() {
+        closeModal();
+
+        // Clear all transactions only if the user clicked "Yes"
+        transactions = [];
+        updateTransactionList();
+        updateTotalAmount();
+        localStorage.removeItem('transactions');
+    }
+
+    function deleteTransaction(index) {
+        transactions.splice(index, 1);
+        updateTransactionList();
+        updateTotalAmount();
+        saveTransactions();
+    }
+
+    function downloadExcel() {
+        const data = transactions.map(({ itemName, itemPrice, date }) => [itemName, itemPrice, date]);
+
+        const ws = XLSX.utils.aoa_to_sheet([['Item Name', 'Item Price', 'Date'], ...data]);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Transactions');
+
+        // Save the file using XLSX.writeFile
+        XLSX.writeFile(wb, 'transactions.xlsx');
+    }
+
+    // Initial update on page load
+    updateTransactionList();
+    updateTotalAmount();
+</script>
+
+</body>
+</html>
